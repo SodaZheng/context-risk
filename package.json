@@ -1,0 +1,22 @@
+{
+  "name": "@soda/context-risk",
+  "version": "0.1.0",
+  "description": "Claude Code plugin for context risk detection and high-quality handoff.",
+  "type": "module",
+  "private": true,
+  "bin": {
+    "context-risk": "./src/cli.js"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "npm test",
+    "verify": "npm run check && test -f .claude-plugin/plugin.json && test -f .claude-plugin/marketplace.json && test -f hooks/hooks.json"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.8"
+  }
+}

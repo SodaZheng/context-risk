@@ -1,0 +1,13 @@
+{
+  "name": "context-risk-marketplace",
+  "owner": {
+    "name": "soda"
+  },
+  "plugins": [
+    {
+      "name": "context-risk",
+      "source": "./",
+      "description": "Detects context risk, guards large context growth, and creates structured handoffs for Claude Code."
+    }
+  ]
+}
