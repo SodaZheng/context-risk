@@ -7,7 +7,7 @@
     {
       "name": "context-risk",
       "source": "./",
-      "description": "Detects context risk, guards large context growth, and creates structured handoffs for Claude Code."
+      "description": "Watches context usage and automatically creates structured handoffs so Claude Code work can continue in a clean window."
     }
   ]
 }

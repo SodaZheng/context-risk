@@ -37,6 +37,8 @@ describe('status line recorder', () => {
     expect(state.sessions.s1.lastObservedUsedPercentage).toBe(41.8)
     expect(state.sessions.s1.lastObservedContextWindowSize).toBe(200000)
     expect(state.sessions.s1.modelDisplayName).toBe('Opus')
+    expect(state.sessions.s1.thresholdEvents).toBeUndefined()
+    expect(state.sessions.s1.checkpointEvents).toBeUndefined()
   })
 
   it('returns undefined when session id is missing', async () => {

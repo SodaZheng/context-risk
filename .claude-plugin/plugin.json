@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "context-risk",
   "displayName": "ContextRisk",
-  "description": "Detects high context usage, prevents avoidable context growth, and creates structured task handoffs.",
+  "description": "Watches context usage and automatically creates structured handoffs at risk thresholds so work can continue in a clean window.",
   "version": "0.1.0",
   "author": {
     "name": "soda"
@@ -13,7 +13,7 @@
     "softBlockThreshold": {
       "type": "number",
       "title": "Soft block threshold",
-      "description": "Context percentage where ContextRisk starts blocking normal continuation.",
+      "description": "Legacy compatibility threshold retained from earlier guardrail behavior.",
       "default": 50,
       "min": 1,
       "max": 99

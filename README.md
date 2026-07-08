@@ -2,11 +2,21 @@
 
 **Language:** English | [中文](README.zh-CN.md)
 
-ContextRisk is a Claude Code plugin that warns before the context window becomes risky, preserves your existing status line, and creates structured handoffs so unfinished work can continue in a clean Claude Code window.
+ContextRisk is a Claude Code plugin that watches context usage and automatically creates structured handoffs when the current window reaches 40%, 50%, and each 10% threshold after that. It preserves your existing status line and gives you a clean `/new` plus `/context-risk:continue <handoff-id>` path without blocking normal work.
 
 **Repository:** [SodaZheng/context-risk](https://github.com/SodaZheng/context-risk)
 
 ![ContextRisk architecture](docs/context-risk-readme-architecture.png)
+
+## Project Background And Goals
+
+ContextRisk comes from a recurring engineering problem: during long Claude Code or model-assisted development sessions, context quality often starts degrading well before the window is near full. In practice, many models become less reliable after context usage passes roughly 40%. They may retain less of the original constraints, drift from the current objective, lose track of important code paths, or make weaker risk judgments. Continuing in the same window can quietly turn from productive work into accumulated task drift.
+
+The usual recovery paths are imperfect. Built-in compaction can reduce context size, but the retained details and priorities are not fully controllable. Opening a fresh window gives the model a cleaner context, but it is hard to restate exactly what has been done, which assumptions were verified, where the task should resume, and which earlier constraints must not be lost.
+
+ContextRisk treats context degradation as an observable workflow risk rather than a normal cost of long sessions. Its goal is not to extend one window indefinitely. Instead, it prepares fresh handoff checkpoints as context risk rises so unfinished work can continue in a clean window from verifiable task state.
+
+![ContextRisk context risk and handoff workflow](docs/context-risk-readme-context-flow.png)
 
 ## What It Solves
 
@@ -18,16 +28,15 @@ ContextRisk is not designed to copy a full transcript into a new window. It capt
 
 ### Context Risk Awareness
 
-ContextRisk reads the context usage reported through Claude Code's status line and records the latest observed risk state. It can warn, recommend a handoff, or block normal continuation when the session is becoming unsafe to extend.
+ContextRisk reads the context usage reported through Claude Code's status line and records the latest observed risk state. It uses Claude Code hooks as sensors, then creates a fresh handoff when the latest observed percentage crosses an auto-handoff threshold.
 
-Default risk levels:
+Default auto-handoff thresholds:
 
-| Level | Default threshold | Meaning |
-| --- | ---: | --- |
-| Notice | 40% | Context growth is becoming visible. |
-| Soft block | 50% | Normal continuation should pause. |
-| Handoff recommended | 65% | A fresh-window handoff is strongly recommended. |
-| High risk | 80% | Continuing in the current window is risky. |
+| Threshold | Message |
+| --- | --- |
+| 40% | Suggest switching windows. |
+| 50% | Suggest switching soon. |
+| 60%, 70%, 80%, 90% | Strongly suggest switching. |
 
 ### Status Line Preservation
 
@@ -35,23 +44,20 @@ During installation, ContextRisk wraps the existing Claude Code status line whil
 
 After plugin updates, ContextRisk repairs the wrapper automatically through the `SessionStart` hook on the next session start. You usually do not need to run `repair` manually; it is a fallback for force refreshes and troubleshooting.
 
-### Risk Guardrails
+### Automatic Handoff Checkpoints
 
-ContextRisk protects the workflow at points where avoidable context growth usually happens:
+ContextRisk uses Claude Code hooks as sensors. When the latest observed context usage crosses 40%, 50%, 60%, 70%, 80%, or 90%, it creates a fresh handoff under `.context-risk/handoffs/` and suggests:
 
-| Scenario | Protection |
-| --- | --- |
-| Continuing with a new prompt | Warns or blocks when context risk is high. |
-| Very broad file reads or command output | Blocks obviously oversized operations. |
-| Large tool batches | Stops before the next model call so the user can recover. |
-| Oversized subagent results | Prevents huge subtask output from flooding the main session. |
-| Stop and compact lifecycle | Records events and suggests checkpoint or handoff actions. |
+```text
+/new
+/context-risk:continue <handoff-id>
+```
 
-These guardrails are user-facing workflow protections. You do not need to understand the plugin internals to use them.
+The default behavior is non-blocking. ContextRisk does not stop prompts, tools, subagents, or compaction; it prepares safer continuation points and lets you decide when to switch.
 
 ### Structured Handoff
 
-When the current window is getting risky, or when you simply want a clean continuation point, ContextRisk can create a handoff. A handoff captures:
+When the current window reaches an auto-handoff threshold, or when you manually ask for a clean continuation point, ContextRisk creates a handoff. A handoff captures:
 
 - current objective
 - completed work
@@ -119,25 +125,24 @@ Project handoffs should stay gitignored by default because they may contain loca
 ## Recommended Workflow
 
 1. Use Claude Code normally for development, debugging, or project analysis.
-2. When ContextRisk warns that context risk is rising, pause before adding more large inputs.
-3. Create a handoff in the current window:
+2. When ContextRisk creates an automatic handoff, choose whether to switch now or continue briefly.
+3. To switch, open a fresh Claude Code window:
 
    ```text
-   /context-risk:handoff Finish the current implementation safely
+   /new
    ```
 
-4. Open a fresh Claude Code window in the same project.
-5. Continue from the handoff ID:
+4. Continue from the handoff ID shown by ContextRisk:
 
    ```text
    /context-risk:continue <handoff-id>
    ```
 
-6. The new window verifies the project state, restates the task context, and continues from the first unfinished todo.
+5. The new window verifies the project state, restates the task context, and continues from the first unfinished todo.
 
 ## Configuration
 
-The plugin manifest exposes `softBlockThreshold`, defaulting to `50`. Adjust it if you want ContextRisk to start soft-blocking earlier or later.
+ContextRisk defaults to automatic handoffs at 40%, 50%, 60%, 70%, 80%, and 90%. The plugin manifest still exposes `softBlockThreshold` for compatibility with earlier releases, but the default workflow is driven by the local auto-handoff configuration.
 
 Advanced local overrides can be written to:
 
@@ -149,14 +154,14 @@ Example:
 
 ```json
 {
-  "thresholds": {
-    "softBlock": 55
-  },
-  "maxToolBatchCharsBeforeBlock": 70000
+  "autoHandoff": {
+    "enabled": true,
+    "thresholds": [40, 50, 60, 70, 80, 90]
+  }
 }
 ```
 
-Start with the defaults unless your project needs stricter or looser thresholds.
+Start with the defaults unless your workflow really needs earlier or later handoff checkpoints.
 
 ## Update, Auto-Repair, And Uninstall
 

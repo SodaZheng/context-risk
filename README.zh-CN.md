@@ -2,11 +2,21 @@
 
 **语言：** [English](README.md) | 中文
 
-ContextRisk 是一个 Claude Code 插件，用来在上下文窗口变得危险之前提醒和拦截，保留你原有的状态栏，并生成结构化 handoff，让未完成任务可以在一个干净的新 Claude Code 窗口继续。
+ContextRisk 是一个 Claude Code 插件，用来观察上下文使用率，并在当前窗口到达 40%、50%、以及之后每 10% 阈值时自动生成结构化 handoff。它会保留你原有的状态栏，并给出 `/new` 加 `/context-risk:continue <handoff-id>` 的干净接力路径，但默认不拦截正常工作。
 
 **仓库地址：** [SodaZheng/context-risk](https://github.com/SodaZheng/context-risk)
 
 ![ContextRisk architecture](docs/context-risk-readme-architecture.png)
+
+## 项目背景与目标
+
+这个项目来自一个反复出现的工程实践问题：在长时间使用 Claude Code 或其他模型完成复杂任务时，上下文窗口并不是接近满载才开始变差。很多模型在上下文使用率超过约 40% 之后，约束保持、目标聚焦、代码路径记忆和风险判断都会开始下降。继续在同一个窗口里强行推进，往往不是效率更高，而是在累积更难发现的偏差。
+
+现有的恢复方式也不够稳定。内置压缩可以减少上下文体积，但压缩内容和保留重点并不完全可控；直接新开一个窗口虽然上下文更干净，却很难准确描述已经完成了什么、哪些假设被验证过、当前应该从哪里继续，以及哪些历史约束不能丢失。
+
+ContextRisk 的目标是把这类不可控的“上下文衰退”变成可观察、可提前处理、可交接的工作流问题。它不试图无限延长单个窗口，而是在风险升高时自动准备新的 handoff checkpoint，让新窗口基于可验证的任务状态继续。
+
+![ContextRisk 上下文衰退与 handoff 工作流](docs/context-risk-readme-context-flow.png)
 
 ## 它解决什么问题
 
@@ -18,16 +28,15 @@ ContextRisk 的目标不是把完整对话塞进新窗口，而是把继续工�
 
 ### 上下文风险感知
 
-ContextRisk 会读取 Claude Code 状态栏提供的上下文使用率，并记录最近一次观察到的风险状态。它会按照阈值给出提醒、建议 handoff，或者在继续对话可能明显不安全时阻止普通推进。
+ContextRisk 会读取 Claude Code 状态栏提供的上下文使用率，并记录最近一次观察到的风险状态。它会把 Claude Code hooks 当作传感器使用，当最近观察到的百分比跨过自动 handoff 阈值时生成新的 handoff。
 
-默认风险层级：
+默认自动 handoff 阈值：
 
-| 层级 | 默认阈值 | 含义 |
-| --- | ---: | --- |
-| Notice | 40% | 开始提示上下文增长 |
-| Soft block | 50% | 建议停止继续堆上下文 |
-| Handoff recommended | 65% | 强烈建议生成 handoff 后开新窗口 |
-| High risk | 80% | 当前窗口继续工作风险较高 |
+| 阈值 | 提示 |
+| --- | --- |
+| 40% | 建议切到新窗口 |
+| 50% | 建议尽快切到新窗口 |
+| 60%、70%、80%、90% | 强烈建议切到新窗口 |
 
 ### 保留原有状态栏
 
@@ -35,23 +44,20 @@ ContextRisk 会读取 Claude Code 状态栏提供的上下文使用率，并记�
 
 如果插件更新后缓存路径变化，ContextRisk 会在新会话启动时通过 `SessionStart` 自动修复状态栏包装。通常不需要手动运行 `repair`；它只是强制刷新或排障时的兜底命令。
 
-### 风险防护
+### 自动 handoff checkpoint
 
-ContextRisk 会在多个容易引发上下文爆炸的位置做保护：
+ContextRisk 会把 Claude Code hooks 当作传感器使用。当最近观察到的上下文使用率跨过 40%、50%、60%、70%、80% 或 90% 时，它会在 `.context-risk/handoffs/` 下生成一份新的 handoff，并提示：
 
-| 场景 | 保护方式 |
-| --- | --- |
-| 用户继续发送 prompt | 在高风险时提醒或阻止继续堆上下文 |
-| 大范围文件读取或命令输出 | 阻止明显过宽、容易刷屏的操作 |
-| 工具批量输出过大 | 在下一次模型调用前要求停下来处理 |
-| 子代理返回过大内容 | 避免超长子任务结果直接灌回主上下文 |
-| 停止点和压缩点 | 记录事件，并提示是否需要 checkpoint 或 handoff |
+```text
+/new
+/context-risk:continue <handoff-id>
+```
 
-这些保护面向使用体验和任务连续性，不要求用户理解插件内部实现。
+默认行为是不拦截。ContextRisk 不会阻止 prompt、工具调用、子代理或压缩流程；它只负责提前准备更安全的接力点，由你决定什么时候切到新窗口。
 
 ### 结构化 handoff
 
-当窗口上下文偏高，或者你主动希望换一个干净窗口继续时，可以生成 handoff。handoff 会聚合当前任务的核心信息：
+当窗口到达自动 handoff 阈值，或者你主动希望换一个干净窗口继续时，ContextRisk 会生成 handoff。handoff 会聚合当前任务的核心信息：
 
 - 当前目标
 - 已完成工作
@@ -119,25 +125,24 @@ ContextRisk 只写入本机和当前项目目录：
 ## 推荐工作流
 
 1. 正常使用 Claude Code 开发、调试或分析项目。
-2. 当 ContextRisk 提醒上下文风险升高时，先不要继续塞入大段信息。
-3. 在当前窗口生成 handoff：
+2. 当 ContextRisk 自动生成 handoff 时，决定现在切窗口还是短暂继续。
+3. 如果要切换，打开新的 Claude Code 窗口：
 
    ```text
-   /context-risk:handoff Finish the current implementation safely
+   /new
    ```
 
-4. 打开同一项目下的新 Claude Code 窗口。
-5. 使用 handoff ID 继续：
+4. 使用 ContextRisk 提示里的 handoff ID 继续：
 
    ```text
    /context-risk:continue <handoff-id>
    ```
 
-6. 新窗口会核对项目状态、复述任务上下文，并从第一项未完成待办开始继续。
+5. 新窗口会核对项目状态、复述任务上下文，并从第一项未完成待办开始继续。
 
 ## 配置
 
-插件 manifest 暴露了 `softBlockThreshold`，默认值是 `50`。如果你希望更早或更晚触发 soft block，可以在插件配置里调整。
+ContextRisk 默认会在 40%、50%、60%、70%、80% 和 90% 自动生成 handoff。插件 manifest 仍然保留 `softBlockThreshold` 以兼容旧版本，但默认工作流由本地 auto-handoff 配置驱动。
 
 高级本地覆盖可以写入：
 
@@ -149,14 +154,14 @@ ContextRisk 只写入本机和当前项目目录：
 
 ```json
 {
-  "thresholds": {
-    "softBlock": 55
-  },
-  "maxToolBatchCharsBeforeBlock": 70000
+  "autoHandoff": {
+    "enabled": true,
+    "thresholds": [40, 50, 60, 70, 80, 90]
+  }
 }
 ```
 
-建议先使用默认配置。只有当你的项目确实需要更宽松或更严格的阈值时，再调整本地覆盖。
+建议先使用默认配置。只有当你的工作流确实需要更早或更晚的 handoff checkpoint 时，再调整本地覆盖。
 
 ## 更新、自动修复与卸载
 

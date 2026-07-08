@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -72,6 +72,41 @@ describe('status line installer', () => {
     expect(settings.statusLine.command.match(/statusline-wrapper\.mjs/g)).toHaveLength(1)
   })
 
+  it('does not rewrite settings or add backups when already installed', async () => {
+    await writeFile(settingsPath, JSON.stringify({
+      statusLine: { type: 'command', command: '~/.claude/statusline.sh', padding: 2 }
+    }, null, 2))
+    await installStatusLineWrapper(settingsPath, home)
+
+    const beforeSettings = await readFile(settingsPath, 'utf8')
+    const beforeBackups = await backupFiles()
+    await new Promise(resolve => setTimeout(resolve, 5))
+
+    await installStatusLineWrapper(settingsPath, home)
+
+    expect(await readFile(settingsPath, 'utf8')).toBe(beforeSettings)
+    expect(await backupFiles()).toEqual(beforeBackups)
+  })
+
+  it('preserves an unrelated statusLine command that mentions the wrapper filename', async () => {
+    await writeFile(settingsPath, JSON.stringify({
+      statusLine: {
+        type: 'command',
+        command: 'printf statusline-wrapper.mjs',
+        padding: 2
+      }
+    }, null, 2))
+
+    await installStatusLineWrapper(settingsPath, home)
+
+    const original = JSON.parse(await readFile(join(getContextRiskDir(home), 'original-statusline.json'), 'utf8'))
+    expect(original).toEqual({
+      type: 'command',
+      command: 'printf statusline-wrapper.mjs',
+      padding: 2
+    })
+  })
+
   it('auto repair skips when ContextRisk is not installed', async () => {
     await writeFile(settingsPath, JSON.stringify({ theme: 'dark-ansi' }, null, 2))
 
@@ -80,6 +115,22 @@ describe('status line installer', () => {
     const settings = JSON.parse(await readFile(settingsPath, 'utf8'))
     expect(repaired).toBe(false)
     expect(settings.statusLine).toBeUndefined()
+  })
+
+  it('auto repair skips unrelated commands that mention the wrapper filename', async () => {
+    await writeFile(settingsPath, JSON.stringify({
+      statusLine: { type: 'command', command: 'printf statusline-wrapper.mjs', padding: 2 }
+    }, null, 2))
+
+    const repaired = await autoRepairStatusLineWrapper(settingsPath, home)
+
+    const settings = JSON.parse(await readFile(settingsPath, 'utf8'))
+    expect(repaired).toBe(false)
+    expect(settings.statusLine).toEqual({
+      type: 'command',
+      command: 'printf statusline-wrapper.mjs',
+      padding: 2
+    })
   })
 
   it('auto repair refreshes an installed wrapper without overwriting the saved original', async () => {
@@ -105,3 +156,9 @@ describe('status line installer', () => {
     expect(settings.statusLine.padding).toBe(2)
   })
 })
+
+async function backupFiles() {
+  return (await readdir(join(home, '.claude')))
+    .filter(name => name.startsWith('settings.json.context-risk-') && name.endsWith('.bak'))
+    .sort()
+}

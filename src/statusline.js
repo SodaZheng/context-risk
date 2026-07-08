@@ -14,9 +14,7 @@ export async function recordStatusLineInput(input, home) {
     lastObservedContextWindowSize: numberOrUndefined(input.context_window?.context_window_size),
     lastObservedTotalInputTokens: numberOrUndefined(input.context_window?.total_input_tokens),
     lastObservedTotalOutputTokens: numberOrUndefined(input.context_window?.total_output_tokens),
-    lastObservedAt: new Date().toISOString(),
-    thresholdEvents: {},
-    checkpointEvents: {}
+    lastObservedAt: new Date().toISOString()
   }
 
   await saveSessionState(session, home)
@@ -74,8 +72,7 @@ function record(raw) {
     lastObservedTotalInputTokens: typeof parsed.context_window?.total_input_tokens === 'number' ? parsed.context_window.total_input_tokens : undefined,
     lastObservedTotalOutputTokens: typeof parsed.context_window?.total_output_tokens === 'number' ? parsed.context_window.total_output_tokens : undefined,
     lastObservedAt: new Date().toISOString(),
-    thresholdEvents: state.sessions[parsed.session_id]?.thresholdEvents || {},
-    checkpointEvents: state.sessions[parsed.session_id]?.checkpointEvents || {}
+    autoHandoffEvents: state.sessions[parsed.session_id]?.autoHandoffEvents || undefined
   }
   const tmpPath = statePath + '.' + process.pid + '.tmp'
   writeFileSync(tmpPath, JSON.stringify(state, null, 2) + '\\n')

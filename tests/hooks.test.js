@@ -16,13 +16,13 @@ afterEach(async () => {
 })
 
 describe('hook handlers', () => {
-  it('injects guardrails once at notice threshold', async () => {
+  it('creates an auto handoff at 40 percent without blocking the prompt', async () => {
     await saveSessionState({
       sessionId: 's1',
+      cwd: home,
+      transcriptPath: '/tmp/transcript.jsonl',
       lastObservedUsedPercentage: 42,
-      lastObservedAt: '2026-07-07T00:00:00.000Z',
-      thresholdEvents: {},
-      checkpointEvents: {}
+      lastObservedAt: '2026-07-08T00:00:00.000Z'
     }, home)
 
     const output = await handleHook({
@@ -31,74 +31,77 @@ describe('hook handlers', () => {
       prompt: 'continue'
     }, home)
 
+    expect(output?.decision).toBeUndefined()
+    expect(output?.hookSpecificOutput?.permissionDecision).toBeUndefined()
     expect(output?.hookSpecificOutput?.hookEventName).toBe('UserPromptSubmit')
-    expect(String(output?.hookSpecificOutput?.additionalContext)).toContain('ContextRisk')
-    expect(String(output?.hookSpecificOutput?.additionalContext)).toContain('last observed')
+    expect(output?.hookSpecificOutput?.additionalContext).toContain('auto handoff created')
+    expect(output?.hookSpecificOutput?.additionalContext).toContain('/new')
+    expect(output?.hookSpecificOutput?.additionalContext).toContain('/context-risk:continue')
+  })
 
-    const second = await handleHook({
+  it('does not create duplicate handoffs for repeated hook calls in the same band', async () => {
+    await saveSessionState({
+      sessionId: 's1',
+      cwd: home,
+      transcriptPath: '/tmp/transcript.jsonl',
+      lastObservedUsedPercentage: 42,
+      lastObservedAt: '2026-07-08T00:00:00.000Z'
+    }, home)
+
+    await handleHook({
       hook_event_name: 'UserPromptSubmit',
       session_id: 's1',
       prompt: 'continue'
+    }, home)
+
+    const second = await handleHook({
+      hook_event_name: 'PreToolUse',
+      sessionId: 's1',
+      session_id: 's1',
+      tool_name: 'Bash',
+      tool_input: { command: 'npm test' }
     }, home)
 
     expect(second).toBeUndefined()
   })
 
-  it('blocks normal prompts at soft block threshold', async () => {
+  it('observes tool hooks without warning about specific commands', async () => {
     await saveSessionState({
       sessionId: 's1',
-      lastObservedUsedPercentage: 51,
-      lastObservedAt: '2026-07-07T00:00:00.000Z',
-      thresholdEvents: {},
-      checkpointEvents: {}
+      cwd: home,
+      transcriptPath: '/tmp/transcript.jsonl',
+      lastObservedUsedPercentage: 35,
+      lastObservedAt: '2026-07-08T00:00:00.000Z'
     }, home)
 
     const output = await handleHook({
-      hook_event_name: 'UserPromptSubmit',
+      hook_event_name: 'PreToolUse',
       session_id: 's1',
-      prompt: 'continue'
-    }, home)
-
-    expect(output?.decision).toBe('block')
-    expect(output?.reason).toContain('/context-risk:handoff')
-    expect(output?.reason).toContain('last observed')
-  })
-
-  it('allows explicit override at soft block threshold', async () => {
-    await saveSessionState({
-      sessionId: 's1',
-      lastObservedUsedPercentage: 51,
-      lastObservedAt: '2026-07-07T00:00:00.000Z',
-      thresholdEvents: {},
-      checkpointEvents: {}
-    }, home)
-
-    const output = await handleHook({
-      hook_event_name: 'UserPromptSubmit',
-      session_id: 's1',
-      prompt: 'context-risk:continue finish the edit'
+      tool_name: 'Bash',
+      tool_input: { command: 'cat huge.log' }
     }, home)
 
     expect(output).toBeUndefined()
   })
 
-  it('blocks risky pre tool use', async () => {
-    const output = await handleHook({
-      hook_event_name: 'PreToolUse',
-      tool_name: 'Bash',
-      tool_input: { command: 'cat huge.log' }
+  it('creates handoffs from non-prompt observation hooks', async () => {
+    await saveSessionState({
+      sessionId: 's1',
+      cwd: home,
+      transcriptPath: '/tmp/transcript.jsonl',
+      lastObservedUsedPercentage: 70,
+      lastObservedAt: '2026-07-08T00:00:00.000Z'
     }, home)
 
-    expect(output?.hookSpecificOutput?.permissionDecision).toBe('deny')
-  })
-
-  it('blocks large post tool batches', async () => {
     const output = await handleHook({
-      hook_event_name: 'PostToolBatch',
-      tool_calls: [{ tool_name: 'Bash', tool_response: 'x'.repeat(51000) }]
+      hook_event_name: 'SubagentStop',
+      session_id: 's1',
+      agent_type: 'reviewer',
+      last_assistant_message: 'short result'
     }, home)
 
-    expect(output?.decision).toBe('block')
-    expect(output?.reason).toContain('tool batch')
+    expect(output?.hookSpecificOutput?.hookEventName).toBe('SubagentStop')
+    expect(output?.hookSpecificOutput?.additionalContext).toContain('70%')
+    expect(output?.hookSpecificOutput?.additionalContext).toContain('strongly recommended')
   })
 })

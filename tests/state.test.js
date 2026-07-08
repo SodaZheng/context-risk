@@ -23,26 +23,31 @@ describe('config and state', () => {
 
   it('loads default config when no local config exists', async () => {
     const config = await loadConfig(home)
-    expect(config.thresholds.softBlock).toBe(50)
-    expect(config.maxToolBatchCharsBeforeBlock).toBe(50000)
+    expect(config.autoHandoff).toEqual({
+      enabled: true,
+      thresholds: [40, 50, 60, 70, 80, 90]
+    })
+    expect(config.thresholds).toBeUndefined()
   })
 
   it('merges local config overrides', async () => {
     const dir = getContextRiskDir(home)
-    await writeFile(join(dir, 'config.json'), JSON.stringify({ thresholds: { softBlock: 55 } }), {
+    await writeFile(join(dir, 'config.json'), JSON.stringify({
+      autoHandoff: { enabled: false, thresholds: [45, 55, 65] }
+    }), {
       flag: 'wx'
     }).catch(async error => {
       if (error.code !== 'ENOENT') throw error
       await import('node:fs/promises').then(fs => fs.mkdir(dir, { recursive: true }))
-      await writeFile(join(dir, 'config.json'), JSON.stringify({ thresholds: { softBlock: 55 } }))
+      await writeFile(join(dir, 'config.json'), JSON.stringify({
+        autoHandoff: { enabled: false, thresholds: [45, 55, 65] }
+      }))
     })
 
     const config = await loadConfig(home)
-    expect(config.thresholds).toEqual({
-      notice: 40,
-      softBlock: 55,
-      handoffRecommended: 65,
-      highRisk: 80
+    expect(config.autoHandoff).toEqual({
+      enabled: false,
+      thresholds: [45, 55, 65]
     })
   })
 
@@ -58,6 +63,8 @@ describe('config and state', () => {
     const state = await loadState(home)
     expect(state.latestSessionId).toBe('s1')
     expect(state.sessions.s1.lastObservedUsedPercentage).toBe(44)
+    expect(state.sessions.s1.thresholdEvents).toBeUndefined()
+    expect(state.sessions.s1.checkpointEvents).toBeUndefined()
   })
 
   it('appends jsonl events', async () => {

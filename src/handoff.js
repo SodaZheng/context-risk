@@ -3,6 +3,11 @@ import { join } from 'node:path'
 import { collectProjectMetadata, ensureProjectStateDir } from './project.js'
 
 export async function createHandoffDraft(options) {
+  const record = await createHandoffDraftRecord(options)
+  return record.path
+}
+
+export async function createHandoffDraftRecord(options) {
   await ensureProjectStateDir(options.cwd)
   const metadata = await collectProjectMetadata(options.cwd)
   const id = handoffId(options.objective)
@@ -13,9 +18,10 @@ export async function createHandoffDraft(options) {
     sessionId: options.sessionId ?? 'unknown',
     transcriptPath: options.transcriptPath ?? 'unknown',
     cwd: metadata.cwd,
-    gitSummary: metadata.gitSummary
+    gitSummary: metadata.gitSummary,
+    thresholdPercentage: options.thresholdPercentage
   }), 'utf8')
-  return path
+  return { id, path }
 }
 
 function handoffId(objective) {
@@ -37,6 +43,7 @@ function renderHandoff(input) {
 - Original session_id: ${input.sessionId}
 - Original transcript_path: ${input.transcriptPath}
 - Project cwd: ${input.cwd}
+${typeof input.thresholdPercentage === 'number' ? `- Auto handoff threshold: ${input.thresholdPercentage}%\n` : ''}
 
 ## Git State
 

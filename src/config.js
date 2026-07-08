@@ -3,16 +3,10 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 
 export const defaultConfig = {
-  thresholds: {
-    notice: 40,
-    softBlock: 50,
-    handoffRecommended: 65,
-    highRisk: 80
+  autoHandoff: {
+    enabled: true,
+    thresholds: [40, 50, 60, 70, 80, 90]
   },
-  preferHandoffOverCompact: true,
-  maxToolBatchCharsBeforeBlock: 50000,
-  maxSingleToolCharsBeforeWarning: 20000,
-  checkpointOncePerThreshold: true,
   preserveExistingStatusLine: true,
   minimalStatusLineWhenNoOriginal: true
 }
@@ -40,12 +34,29 @@ export async function loadConfig(home = homedir()) {
   }
 
   const parsed = JSON.parse(raw)
+  const {
+    thresholds,
+    preferHandoffOverCompact,
+    maxToolBatchCharsBeforeBlock,
+    maxSingleToolCharsBeforeWarning,
+    checkpointOncePerThreshold,
+    autoHandoff,
+    ...supported
+  } = parsed
+
+  void thresholds
+  void preferHandoffOverCompact
+  void maxToolBatchCharsBeforeBlock
+  void maxSingleToolCharsBeforeWarning
+  void checkpointOncePerThreshold
+
   return {
     ...defaultConfig,
-    ...parsed,
-    thresholds: {
-      ...defaultConfig.thresholds,
-      ...parsed.thresholds
+    ...supported,
+    autoHandoff: {
+      ...defaultConfig.autoHandoff,
+      ...autoHandoff,
+      thresholds: autoHandoff?.thresholds ?? defaultConfig.autoHandoff.thresholds
     }
   }
 }
