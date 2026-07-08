@@ -31,6 +31,14 @@ describe('Claude Code marketplace packaging', () => {
     expect(combined).toContain('src/cli.js')
   })
 
+  it('does not duplicate the standard hooks config in the plugin manifest', async () => {
+    const manifest = JSON.parse(await readFile(join(root, '.claude-plugin', 'plugin.json'), 'utf8'))
+    const declaredHooks = [manifest.hooks].flat().filter(Boolean)
+
+    expect(declaredHooks).not.toContain('./hooks/hooks.json')
+    expect(declaredHooks).not.toContain('hooks/hooks.json')
+  })
+
   it('auto repairs the status line wrapper at session start', async () => {
     const hooks = JSON.parse(await readFile(join(root, 'hooks/hooks.json'), 'utf8'))
     expect(hooks.hooks.SessionStart[0].hooks[0]).toEqual(expect.objectContaining({
