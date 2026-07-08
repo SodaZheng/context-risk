@@ -7,7 +7,6 @@
   "author": {
     "name": "soda"
   },
-  "hooks": "./hooks/hooks.json",
   "skills": "./skills",
   "defaultEnabled": true,
   "userConfig": {
