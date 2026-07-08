@@ -14,6 +14,8 @@ describe('Claude Code marketplace packaging', () => {
         source: './'
       })
     ])
+    expect(marketplace.plugins[0].description).toContain('automatically creates structured handoffs')
+    expect(marketplace.plugins[0].description).not.toContain('large context growth')
   })
 
   it('uses source runtime commands instead of dist artifacts', async () => {
@@ -57,5 +59,13 @@ describe('Claude Code marketplace packaging', () => {
     expect(skills.install).toContain('node "${CLAUDE_PLUGIN_ROOT}/src/cli.js" install')
     expect(skills.repair).toContain('node "${CLAUDE_PLUGIN_ROOT}/src/cli.js" repair')
     expect(skills.uninstall).toContain('node "${CLAUDE_PLUGIN_ROOT}/src/cli.js" uninstall')
+  })
+
+  it('describes risk-check in terms of auto handoff state', async () => {
+    const skill = await readFile(join(root, 'skills/risk-check/SKILL.md'), 'utf8')
+
+    expect(skill).toContain('autoHandoffEvents')
+    expect(skill).toContain('auto_handoff_created')
+    expect(skill).not.toContain('threshold events')
   })
 })

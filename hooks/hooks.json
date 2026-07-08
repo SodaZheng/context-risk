@@ -19,20 +19,20 @@
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/src/cli.js\" hook UserPromptSubmit",
             "timeout": 5,
-            "statusMessage": "ContextRisk checking prompt"
+            "statusMessage": "ContextRisk checking auto handoff"
           }
         ]
       }
     ],
     "PreToolUse": [
       {
-        "matcher": "Bash|Read",
+        "matcher": "*",
         "hooks": [
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/src/cli.js\" hook PreToolUse",
             "timeout": 5,
-            "statusMessage": "ContextRisk checking tool output risk"
+            "statusMessage": "ContextRisk checking auto handoff"
           }
         ]
       }
@@ -44,7 +44,7 @@
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/src/cli.js\" hook PostToolBatch",
             "timeout": 10,
-            "statusMessage": "ContextRisk checking tool batch"
+            "statusMessage": "ContextRisk checking auto handoff"
           }
         ]
       }
@@ -56,7 +56,7 @@
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/src/cli.js\" hook Stop",
             "timeout": 5,
-            "statusMessage": "ContextRisk checking checkpoint"
+            "statusMessage": "ContextRisk checking auto handoff"
           }
         ]
       }
@@ -69,7 +69,7 @@
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/src/cli.js\" hook SubagentStop",
             "timeout": 5,
-            "statusMessage": "ContextRisk checking subagent summary"
+            "statusMessage": "ContextRisk checking auto handoff"
           }
         ]
       }
@@ -81,7 +81,8 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/src/cli.js\" hook PreCompact",
-            "timeout": 5
+            "timeout": 5,
+            "statusMessage": "ContextRisk checking auto handoff"
           }
         ]
       }
@@ -93,7 +94,8 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/src/cli.js\" hook PostCompact",
-            "timeout": 5
+            "timeout": 5,
+            "statusMessage": "ContextRisk checking auto handoff"
           }
         ]
       }

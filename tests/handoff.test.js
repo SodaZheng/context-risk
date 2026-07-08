@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { createHandoffDraft } from '../src/handoff.js'
+import { createHandoffDraft, createHandoffDraftRecord } from '../src/handoff.js'
 
 let cwd
 
@@ -33,5 +33,23 @@ describe('handoff generation', () => {
     const gitignore = await readFile(join(cwd, '.context-risk', '.gitignore'), 'utf8')
     expect(gitignore).toContain('handoffs/')
     expect(gitignore).toContain('compacts/')
+  })
+
+  it('can return handoff id and path for auto handoff callers', async () => {
+    const record = await createHandoffDraftRecord({
+      cwd,
+      objective: 'Continue work from ContextRisk auto handoff at 60% context usage',
+      sessionId: 's-auto',
+      transcriptPath: '/tmp/auto-transcript.jsonl',
+      thresholdPercentage: 60
+    })
+
+    expect(record.id).toContain('continue-work-from-contextrisk-auto-handoff')
+    expect(record.path).toContain(`${record.id}.md`)
+
+    const content = await readFile(record.path, 'utf8')
+    expect(content).toContain('Auto handoff threshold: 60%')
+    expect(content).toContain('s-auto')
+    expect(content).toContain('/tmp/auto-transcript.jsonl')
   })
 })

@@ -11,23 +11,31 @@ export async function installStatusLineWrapper(settingsPath, home) {
   await mkdir(dir, { recursive: true })
 
   const originalPath = join(dir, 'original-statusline.json')
+  const wrapperPath = join(dir, wrapperMarker)
+  const expectedCommand = wrapperCommand(wrapperPath)
+  const expectedWrapperSource = createStatusLineWrapperSource()
   const currentStatusLine = settings.statusLine
+  const currentIsWrapper = isContextRiskWrapperCommand(currentStatusLine?.command, wrapperPath)
 
-  if (!currentStatusLine?.command || !currentStatusLine.command.includes(wrapperMarker)) {
+  if (!currentIsWrapper) {
     await writeFile(originalPath, `${JSON.stringify(currentStatusLine ?? {}, null, 2)}\n`, 'utf8')
   }
 
-  const wrapperPath = join(dir, wrapperMarker)
-  await writeFile(wrapperPath, createStatusLineWrapperSource(), { encoding: 'utf8', mode: 0o755 })
+  if (await fileContentDiffers(wrapperPath, expectedWrapperSource)) {
+    await writeFile(wrapperPath, expectedWrapperSource, { encoding: 'utf8', mode: 0o755 })
+  }
 
   settings.statusLine = {
     ...(currentStatusLine ?? {}),
     type: 'command',
-    command: `node "${wrapperPath}"`
+    command: expectedCommand
   }
 
-  await backupSettings(settingsPath)
-  await writeFile(settingsPath, `${JSON.stringify(settings, null, 2)}\n`, 'utf8')
+  const nextSettings = `${JSON.stringify(settings, null, 2)}\n`
+  if (await fileContentDiffers(settingsPath, nextSettings)) {
+    await backupSettings(settingsPath)
+    await writeFile(settingsPath, nextSettings, 'utf8')
+  }
 }
 
 export async function uninstallStatusLineWrapper(settingsPath, home) {
@@ -50,18 +58,18 @@ export async function repairStatusLineWrapper(settingsPath, home) {
 export async function autoRepairStatusLineWrapper(settingsPath, home) {
   const settings = await readSettings(settingsPath)
   const currentStatusLine = settings.statusLine
-  if (!currentStatusLine?.command || !currentStatusLine.command.includes(wrapperMarker)) {
+  const dir = getContextRiskDir(home)
+  const wrapperPath = join(dir, wrapperMarker)
+  const expectedCommand = wrapperCommand(wrapperPath)
+  if (!isContextRiskWrapperCommand(currentStatusLine?.command, wrapperPath)) {
     return false
   }
 
-  const dir = getContextRiskDir(home)
   await mkdir(dir, { recursive: true })
 
-  const wrapperPath = join(dir, wrapperMarker)
   const expectedWrapperSource = createStatusLineWrapperSource()
-  const expectedCommand = `node "${wrapperPath}"`
   const needsWrapperUpdate = await fileContentDiffers(wrapperPath, expectedWrapperSource)
-  const needsSettingsUpdate = currentStatusLine.command !== expectedCommand
+  const needsSettingsUpdate = currentStatusLine.command !== expectedCommand || currentStatusLine.type !== 'command'
 
   if (!needsWrapperUpdate && !needsSettingsUpdate) return false
 
@@ -80,6 +88,18 @@ export async function autoRepairStatusLineWrapper(settingsPath, home) {
   }
 
   return true
+}
+
+function wrapperCommand(wrapperPath) {
+  return `node "${wrapperPath}"`
+}
+
+function isContextRiskWrapperCommand(command, wrapperPath) {
+  if (typeof command !== 'string') return false
+  const trimmed = command.trim()
+  return trimmed === wrapperCommand(wrapperPath) ||
+    trimmed === `node '${wrapperPath}'` ||
+    trimmed === `node ${wrapperPath}`
 }
 
 async function readSettings(settingsPath) {

@@ -30,21 +30,27 @@ export async function writeState(state, home) {
 export async function saveSessionState(session, home) {
   const state = await loadState(home)
   const existing = state.sessions[session.sessionId]
-  const merged = {
-    ...existing,
-    ...session,
-    thresholdEvents: {
-      ...existing?.thresholdEvents,
-      ...session.thresholdEvents
-    },
-    checkpointEvents: {
-      ...existing?.checkpointEvents,
-      ...session.checkpointEvents
-    }
+  const existingSession = withoutLegacySessionFields(existing)
+  const nextSession = withoutLegacySessionFields(session)
+  const autoHandoffEvents = {
+    ...existing?.autoHandoffEvents,
+    ...session.autoHandoffEvents
   }
+  const merged = {
+    ...existingSession,
+    ...nextSession
+  }
+  if (Object.keys(autoHandoffEvents).length > 0) merged.autoHandoffEvents = autoHandoffEvents
 
   state.latestSessionId = session.sessionId
   state.sessions[session.sessionId] = merged
   await writeState(state, home)
   return state
+}
+
+function withoutLegacySessionFields(session = {}) {
+  const { thresholdEvents, checkpointEvents, ...supported } = session
+  void thresholdEvents
+  void checkpointEvents
+  return supported
 }
