@@ -1,6 +1,8 @@
+import { randomUUID } from 'node:crypto'
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { collectProjectMetadata, ensureProjectStateDir } from './project.js'
+import { summarizeTranscript } from './transcript-summary.js'
 
 export async function createHandoffDraft(options) {
   const record = await createHandoffDraftRecord(options)
@@ -10,31 +12,75 @@ export async function createHandoffDraft(options) {
 export async function createHandoffDraftRecord(options) {
   await ensureProjectStateDir(options.cwd)
   const metadata = await collectProjectMetadata(options.cwd)
-  const id = handoffId(options.objective)
-  const path = join(options.cwd, '.context-risk', 'handoffs', `${id}.md`)
-  await writeFile(path, renderHandoff({
-    id,
+  const transcriptSummary = await summarizeTranscript(options.transcriptPath)
+  return writeUniqueHandoff({
+    handoffRoot: options.cwd,
     objective: options.objective ?? 'Unspecified objective',
     sessionId: options.sessionId ?? 'unknown',
     transcriptPath: options.transcriptPath ?? 'unknown',
     cwd: metadata.cwd,
     gitSummary: metadata.gitSummary,
-    thresholdPercentage: options.thresholdPercentage
-  }), 'utf8')
-  return { id, path }
+    thresholdPercentage: options.thresholdPercentage,
+    transcriptSummary
+  })
 }
 
-function handoffId(objective) {
-  const date = new Date().toISOString().slice(0, 10)
-  const slug = (objective ?? 'handoff')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
-    .slice(0, 48) || 'handoff'
-  return `${date}-${slug}`
+async function writeUniqueHandoff(input) {
+  for (let attempt = 0; attempt < 1000; attempt += 1) {
+    const id = randomUUID()
+    const path = join(input.handoffRoot, '.context-risk', 'handoffs', `${id}.md`)
+    try {
+      await writeFile(path, renderHandoff({
+        ...input,
+        id
+      }), { encoding: 'utf8', flag: 'wx' })
+      return { id, path }
+    } catch (error) {
+      if (error.code !== 'EEXIST') throw error
+    }
+  }
+
+  throw new Error('Unable to allocate unique handoff id')
 }
 
 function renderHandoff(input) {
+  const summary = input.transcriptSummary
+  const currentObjective = summary?.currentObjective ?? input.objective
+  const completedWork = formatBullets(
+    summary?.completedWork,
+    'Capture completed work here before opening a new window.'
+  )
+  const unfinishedTodos = formatBullets(
+    summary?.unfinishedTodos,
+    'Capture the next concrete step here.'
+  )
+  const keyDecisions = formatBullets(
+    summary?.keyDecisions,
+    'Capture decisions and rationale here.'
+  )
+  const keyFiles = formatBullets(
+    summary?.keyFiles,
+    'Capture file paths and line references here.'
+  )
+  const commandsAndResults = formatBullets(
+    summary?.commandsAndResults,
+    'Capture commands already run and summarized outcomes here.'
+  )
+  const verifiedFacts = formatBullets(
+    summary?.verifiedFacts,
+    'Capture facts backed by files, tests, or command output here.'
+  )
+  const unverifiedAssumptions = formatBullets(
+    summary?.unverifiedAssumptions,
+    'Capture assumptions that the next window must verify here.'
+  )
+  const knownRisks = formatBullets(
+    summary?.knownRisks,
+    'Capture risks, blockers, and uncertainty here.'
+  )
+  const recommendedNextStep = summary?.recommendedNextStep ??
+    'Read this handoff, verify the current project state, then continue with the first unfinished todo.'
+
   return `# ContextRisk Handoff: ${input.id}
 
 ## Task Identity
@@ -53,43 +99,43 @@ ${input.gitSummary}
 
 ## Current Objective
 
-${input.objective}
+${currentObjective}
 
 ## Completed Work
 
-- Capture completed work here before opening a new window.
+${completedWork}
 
 ## Unfinished Todos
 
-- Capture the next concrete step here.
+${unfinishedTodos}
 
 ## Key Decisions
 
-- Capture decisions and rationale here.
+${keyDecisions}
 
 ## Key Files
 
-- Capture file paths and line references here.
+${keyFiles}
 
 ## Commands And Results
 
-- Capture commands already run and summarized outcomes here.
+${commandsAndResults}
 
 ## Verified Facts
 
-- Capture facts backed by files, tests, or command output here.
+${verifiedFacts}
 
 ## Unverified Assumptions
 
-- Capture assumptions that the next window must verify here.
+${unverifiedAssumptions}
 
 ## Known Risks
 
-- Capture risks, blockers, and uncertainty here.
+${knownRisks}
 
 ## Recommended Next Step
 
-Read this handoff, verify the current project state, then continue with the first unfinished todo.
+${recommendedNextStep}
 
 ## New Window Prompt
 
@@ -100,4 +146,10 @@ Restate the objective, completed work, open todos, risks, and next step.
 Do not assume details that are not in the handoff. Verify by reading files or running commands when needed.
 \`\`\`
 `
+}
+
+function formatBullets(items, placeholder) {
+  const values = Array.isArray(items) ? items.filter(Boolean) : []
+  if (values.length === 0) return `- ${placeholder}`
+  return values.map(item => `- ${item}`).join('\n')
 }

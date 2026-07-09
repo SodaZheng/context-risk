@@ -49,8 +49,10 @@ describe('status line recorder', () => {
   it('emits a wrapper source that references original-statusline.json', async () => {
     const source = createStatusLineWrapperSource()
     expect(source).toContain('original-statusline.json')
-    expect(source).toContain('state.json')
+    expect(source).toContain('recordStatusLineInput')
+    expect(source).not.toContain('writeFileSync')
     expect(source).toContain('spawnSync')
+    expect(source).toContain("spawnSync('sh', ['-c', original.command]")
     await readFile(join(getContextRiskDir(home), 'missing')).catch(error => {
       expect(error.code).toBe('ENOENT')
     })
