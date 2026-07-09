@@ -142,7 +142,7 @@ ContextRisk 只写入本机和当前项目目录：
 
 ## 配置
 
-ContextRisk 默认会在 40%、50%、60%、70%、80% 和 90% 自动生成 handoff。插件 manifest 仍然保留 `softBlockThreshold` 以兼容旧版本，但默认工作流由本地 auto-handoff 配置驱动。
+ContextRisk 默认会在 40%、50%、60%、70%、80% 和 90% 自动生成 handoff。高级工作流调整由本地 auto-handoff 配置驱动。
 
 高级本地覆盖可以写入：
 

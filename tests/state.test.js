@@ -63,8 +63,41 @@ describe('config and state', () => {
     const state = await loadState(home)
     expect(state.latestSessionId).toBe('s1')
     expect(state.sessions.s1.lastObservedUsedPercentage).toBe(44)
-    expect(state.sessions.s1.thresholdEvents).toBeUndefined()
-    expect(state.sessions.s1.checkpointEvents).toBeUndefined()
+    expect(state.sessions.s1.thresholdEvents).toEqual({})
+    expect(state.sessions.s1.checkpointEvents).toEqual({})
+  })
+
+  it('does not lose auto handoff events when session saves race', async () => {
+    await Promise.all([40, 50, 60].map(threshold => saveSessionState({
+      sessionId: 's1',
+      autoHandoffEvents: {
+        [String(threshold)]: {
+          threshold,
+          handoffId: `handoff-${threshold}`,
+          handoffPath: `/tmp/handoff-${threshold}.md`
+        }
+      }
+    }, home)))
+
+    const state = await loadState(home)
+    expect(Object.keys(state.sessions.s1.autoHandoffEvents).sort()).toEqual(['40', '50', '60'])
+  })
+
+  it('preserves legacy session fields as inert compatibility data', async () => {
+    await saveSessionState({
+      sessionId: 's1',
+      thresholdEvents: { notice: { createdAt: '2026-07-07T00:00:00.000Z' } },
+      checkpointEvents: { first: { createdAt: '2026-07-07T00:00:00.000Z' } }
+    }, home)
+
+    await saveSessionState({
+      sessionId: 's1',
+      lastObservedUsedPercentage: 44
+    }, home)
+
+    const state = await loadState(home)
+    expect(state.sessions.s1.thresholdEvents.notice.createdAt).toBe('2026-07-07T00:00:00.000Z')
+    expect(state.sessions.s1.checkpointEvents.first.createdAt).toBe('2026-07-07T00:00:00.000Z')
   })
 
   it('appends jsonl events', async () => {

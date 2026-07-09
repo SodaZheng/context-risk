@@ -142,7 +142,7 @@ Project handoffs should stay gitignored by default because they may contain loca
 
 ## Configuration
 
-ContextRisk defaults to automatic handoffs at 40%, 50%, 60%, 70%, 80%, and 90%. The plugin manifest still exposes `softBlockThreshold` for compatibility with earlier releases, but the default workflow is driven by the local auto-handoff configuration.
+ContextRisk defaults to automatic handoffs at 40%, 50%, 60%, 70%, 80%, and 90%. Advanced workflow changes are driven by the local auto-handoff configuration.
 
 Advanced local overrides can be written to:
 

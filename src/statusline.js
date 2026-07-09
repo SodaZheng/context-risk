@@ -26,18 +26,20 @@ function numberOrUndefined(value) {
 }
 
 export function createStatusLineWrapperSource() {
+  const recorderModuleUrl = new URL('./statusline.js', import.meta.url).href
   return `#!/usr/bin/env node
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
 
 const dir = join(homedir(), '.claude', 'context-risk')
+const recorderModuleUrl = ${JSON.stringify(recorderModuleUrl)}
 mkdirSync(dir, { recursive: true })
 
 const input = readStdin()
 try {
-  record(input)
+  await record(input)
 } catch {
   // Recording must never prevent the user's original status line from rendering.
 }
@@ -47,7 +49,7 @@ function readStdin() {
   return readFileSync(0, 'utf8')
 }
 
-function record(raw) {
+async function record(raw) {
   let parsed
   try {
     parsed = JSON.parse(raw)
@@ -55,28 +57,8 @@ function record(raw) {
     return
   }
   if (!parsed.session_id) return
-
-  const statePath = join(dir, 'state.json')
-  const state = existsSync(statePath) ? JSON.parse(readFileSync(statePath, 'utf8')) : { version: 1, sessions: {} }
-  state.latestSessionId = parsed.session_id
-  state.sessions[parsed.session_id] = {
-    ...(state.sessions[parsed.session_id] || {}),
-    sessionId: parsed.session_id,
-    promptId: parsed.prompt_id,
-    transcriptPath: parsed.transcript_path,
-    cwd: parsed.workspace?.current_dir || parsed.cwd,
-    modelId: parsed.model?.id,
-    modelDisplayName: parsed.model?.display_name,
-    lastObservedUsedPercentage: typeof parsed.context_window?.used_percentage === 'number' ? parsed.context_window.used_percentage : undefined,
-    lastObservedContextWindowSize: typeof parsed.context_window?.context_window_size === 'number' ? parsed.context_window.context_window_size : undefined,
-    lastObservedTotalInputTokens: typeof parsed.context_window?.total_input_tokens === 'number' ? parsed.context_window.total_input_tokens : undefined,
-    lastObservedTotalOutputTokens: typeof parsed.context_window?.total_output_tokens === 'number' ? parsed.context_window.total_output_tokens : undefined,
-    lastObservedAt: new Date().toISOString(),
-    autoHandoffEvents: state.sessions[parsed.session_id]?.autoHandoffEvents || undefined
-  }
-  const tmpPath = statePath + '.' + process.pid + '.tmp'
-  writeFileSync(tmpPath, JSON.stringify(state, null, 2) + '\\n')
-  renameSync(tmpPath, statePath)
+  const { recordStatusLineInput } = await import(recorderModuleUrl)
+  await recordStatusLineInput(parsed)
 }
 
 function forward(raw) {
@@ -90,9 +72,8 @@ function forward(raw) {
     printMinimal(raw)
     return
   }
-  const result = spawnSync(original.command, {
+  const result = spawnSync('sh', ['-c', original.command], {
     input: raw,
-    shell: true,
     encoding: 'utf8',
     env: process.env
   })
