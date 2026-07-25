@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { appendEvent } from '../src/events.js'
 import { getContextRiskDir, loadConfig } from '../src/config.js'
-import { loadState, saveSessionState } from '../src/state.js'
+import { loadLatestSessionForCwd, loadState, saveSessionState } from '../src/state.js'
 
 let home
 
@@ -65,6 +65,34 @@ describe('config and state', () => {
     expect(state.sessions.s1.lastObservedUsedPercentage).toBe(44)
     expect(state.sessions.s1.thresholdEvents).toEqual({})
     expect(state.sessions.s1.checkpointEvents).toEqual({})
+  })
+
+  it('finds the newest recorded session for the requested project', async () => {
+    await saveSessionState({
+      sessionId: 'older',
+      cwd: '/project/a',
+      transcriptPath: '/tmp/older.jsonl',
+      lastObservedAt: '2026-07-07T00:00:00.000Z'
+    }, home)
+    await saveSessionState({
+      sessionId: 'other-project',
+      cwd: '/project/b',
+      transcriptPath: '/tmp/other.jsonl',
+      lastObservedAt: '2026-07-09T00:00:00.000Z'
+    }, home)
+    await saveSessionState({
+      sessionId: 'newer',
+      cwd: '/project/a',
+      transcriptPath: '/tmp/newer.jsonl',
+      lastObservedAt: '2026-07-08T00:00:00.000Z'
+    }, home)
+
+    await expect(loadLatestSessionForCwd('/project/a', home)).resolves.toEqual(
+      expect.objectContaining({
+        sessionId: 'newer',
+        transcriptPath: '/tmp/newer.jsonl'
+      })
+    )
   })
 
   it('does not lose auto handoff events when session saves race', async () => {

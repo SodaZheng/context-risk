@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { ensureContextRiskDir } from './config.js'
 
@@ -17,6 +17,16 @@ export async function loadState(home) {
   const dir = await ensureContextRiskDir(home)
   const statePath = join(dir, 'state.json')
   return readStateFile(statePath)
+}
+
+export async function loadLatestSessionForCwd(cwd, home) {
+  const state = await loadState(home)
+  const targetCwd = resolve(cwd)
+  const sessions = Object.values(state.sessions)
+    .filter(session => session.cwd && resolve(session.cwd) === targetCwd)
+    .sort((left, right) => sessionTimestamp(right) - sessionTimestamp(left))
+
+  return sessions[0]
 }
 
 async function readStateFile(statePath) {
@@ -94,6 +104,11 @@ function withoutUndefinedFields(session = {}) {
   return Object.fromEntries(
     Object.entries(session).filter(([, value]) => value !== undefined)
   )
+}
+
+function sessionTimestamp(session) {
+  const timestamp = Date.parse(session.lastObservedAt ?? '')
+  return Number.isFinite(timestamp) ? timestamp : 0
 }
 
 async function acquireStateLock(dir) {

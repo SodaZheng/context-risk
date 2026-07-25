@@ -33,6 +33,14 @@ describe('Claude Code marketplace packaging', () => {
     expect(combined).toContain('src/cli.js')
   })
 
+  it('defines handoff as a no-argument full-context command', async () => {
+    const skill = await readFile(join(root, 'skills/handoff/SKILL.md'), 'utf8')
+
+    expect(skill).toContain('entire current conversation')
+    expect(skill).not.toContain('$ARGUMENTS')
+    expect(skill).not.toContain('--objective')
+  })
+
   it('does not duplicate the standard hooks config in the plugin manifest', async () => {
     const manifest = JSON.parse(await readFile(join(root, '.claude-plugin', 'plugin.json'), 'utf8'))
     const declaredHooks = [manifest.hooks].flat().filter(Boolean)

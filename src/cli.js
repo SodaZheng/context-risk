@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { createHandoffDraft } from './handoff.js'
 import { handleHook } from './hooks.js'
 import { autoRepairStatusLineWrapper, installStatusLineWrapper, repairStatusLineWrapper, uninstallStatusLineWrapper } from './installer.js'
+import { loadLatestSessionForCwd } from './state.js'
 import { recordStatusLineInput } from './statusline.js'
 
 async function main(argv) {
@@ -50,10 +51,12 @@ async function main(argv) {
 
   if (command === 'handoff' && subcommand === 'draft') {
     const cwd = argValue(rest, '--cwd') ?? process.cwd()
-    const objective = argValue(rest, '--objective')
-    const sessionId = argValue(rest, '--session-id')
-    const transcriptPath = argValue(rest, '--transcript-path')
-    const path = await createHandoffDraft({ cwd, objective, sessionId, transcriptPath })
+    const session = await loadLatestSessionForCwd(cwd)
+    const path = await createHandoffDraft({
+      cwd,
+      sessionId: session?.sessionId,
+      transcriptPath: session?.transcriptPath
+    })
     process.stdout.write(`${path}\n`)
     return
   }

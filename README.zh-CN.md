@@ -118,7 +118,7 @@ ContextRisk 只写入本机和当前项目目录：
 | `/context-risk:repair` | 强制刷新状态栏包装；通常不需要，主要用于排障或立即修复。 |
 | `/context-risk:uninstall` | 卸载 ContextRisk 并恢复原状态栏。 |
 | `/context-risk:risk-check` | 查看最近的上下文状态和风险事件。 |
-| `/context-risk:handoff [objective]` | 为当前任务生成结构化 handoff。 |
+| `/context-risk:handoff` | 自动从完整对话中识别当前任务并生成结构化 handoff。 |
 | `/context-risk:continue <handoff-id>` | 在新窗口中从指定 handoff 继续。 |
 | `/context-risk:compact-plan` | 生成更安全的 `/compact` 指令。 |
 
@@ -126,6 +126,8 @@ ContextRisk 只写入本机和当前项目目录：
 
 1. 正常使用 Claude Code 开发、调试或分析项目。
 2. 当 ContextRisk 自动生成 handoff 时，决定现在切窗口还是短暂继续。
+   你也可以随时直接运行不带参数的 `/context-risk:handoff`；它会从当前完整对话中
+   自动整理目标、决策、已完成工作、待办、验证证据和风险。
 3. 如果要切换，打开新的 Claude Code 窗口：
 
    ```text

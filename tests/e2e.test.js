@@ -36,20 +36,45 @@ describe('cli e2e', () => {
     expect(settings.statusLine.command).toContain('statusline-wrapper.mjs')
     expect(settings.statusLine.padding).toBe(1)
 
+    const transcriptPath = join(home, 'current-session.jsonl')
+    await writeFile(transcriptPath, `${JSON.stringify({
+      type: 'user',
+      origin: { kind: 'human' },
+      message: {
+        role: 'user',
+        content: 'The current objective is to ship the no-argument handoff command.'
+      }
+    })}\n`)
+
+    const stateDir = join(home, '.claude', 'context-risk')
+    await mkdir(stateDir, { recursive: true })
+    await writeFile(join(stateDir, 'state.json'), JSON.stringify({
+      version: 1,
+      latestSessionId: 'current-session',
+      sessions: {
+        'current-session': {
+          sessionId: 'current-session',
+          transcriptPath,
+          cwd: project,
+          lastObservedAt: '2026-07-25T00:00:00.000Z'
+        }
+      }
+    }))
+
     const { stdout } = await execFileAsync('node', [
       'src/cli.js',
       'handoff',
       'draft',
       '--cwd',
-      project,
-      '--objective',
-      'E2E ContextRisk'
+      project
     ], {
       env: { ...process.env, HOME: home }
     })
 
     expect(stdout.trim()).toContain('.context-risk/handoffs/')
     const handoff = await readFile(stdout.trim(), 'utf8')
-    expect(handoff).toContain('E2E ContextRisk')
+    expect(handoff).toContain('ship the no-argument handoff command')
+    expect(handoff).toContain('current-session')
+    expect(handoff).toContain(transcriptPath)
   })
 })
