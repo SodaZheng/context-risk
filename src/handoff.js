@@ -15,7 +15,7 @@ export async function createHandoffDraftRecord(options) {
   const transcriptSummary = await summarizeTranscript(options.transcriptPath)
   return writeUniqueHandoff({
     handoffRoot: options.cwd,
-    objective: options.objective ?? 'Unspecified objective',
+    objective: options.objective ?? 'Infer the current objective from the full conversation context.',
     sessionId: options.sessionId ?? 'unknown',
     transcriptPath: options.transcriptPath ?? 'unknown',
     cwd: metadata.cwd,

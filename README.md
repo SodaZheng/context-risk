@@ -118,7 +118,7 @@ Project handoffs should stay gitignored by default because they may contain loca
 | `/context-risk:repair` | Force-refresh the status line wrapper; usually unnecessary except for troubleshooting or immediate repair. |
 | `/context-risk:uninstall` | Uninstall ContextRisk and restore the previous status line. |
 | `/context-risk:risk-check` | Show recent context state and risk events. |
-| `/context-risk:handoff [objective]` | Create a structured handoff for the current task. |
+| `/context-risk:handoff` | Infer the current task from the full conversation and create a structured handoff. |
 | `/context-risk:continue <handoff-id>` | Continue from a handoff in a new window. |
 | `/context-risk:compact-plan` | Generate a safer `/compact` instruction. |
 
@@ -126,6 +126,9 @@ Project handoffs should stay gitignored by default because they may contain loca
 
 1. Use Claude Code normally for development, debugging, or project analysis.
 2. When ContextRisk creates an automatic handoff, choose whether to switch now or continue briefly.
+   You can also run `/context-risk:handoff` with no arguments at any time; it derives
+   the objective, decisions, completed work, open todos, evidence, and risks from the
+   current conversation.
 3. To switch, open a fresh Claude Code window:
 
    ```text
